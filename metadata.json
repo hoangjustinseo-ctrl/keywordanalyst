@@ -1,0 +1,5 @@
+{
+  "name": "KeywordSense AI",
+  "description": "Công cụ phân tích từ khóa thông minh sử dụng Gemini AI để phân cụm Semantic, phát hiện thương hiệu và lọc ngôn ngữ từ file Excel/CSV.",
+  "requestFramePermissions": []
+}
