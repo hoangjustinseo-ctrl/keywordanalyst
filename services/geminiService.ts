@@ -1,6 +1,13 @@
 import { GoogleGenAI, Type } from "@google/genai";
 import { AnalyzedKeyword } from "../types";
 
+// Khai báo kiểu dữ liệu cho process.env để TypeScript không báo lỗi trong môi trường Vite/Browser
+declare const process: {
+  env: {
+    API_KEY?: string;
+  }
+};
+
 const SYSTEM_INSTRUCTION = `
 Bạn là một chuyên gia SEO và NLP. Nhiệm vụ của bạn là phân tích danh sách từ khóa được cung cấp.
 Với mỗi từ khóa, bạn cần thực hiện:

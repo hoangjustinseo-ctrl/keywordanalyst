@@ -1,7 +1,7 @@
 import React, { useState, useMemo } from 'react';
 import { AnalyzedKeyword } from '../types';
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip, BarChart, Bar, XAxis, YAxis, CartesianGrid, Legend } from 'recharts';
-import { Download, Filter, Search, Tag, Globe, Layers } from 'lucide-react';
+import { Download, Search, Tag, Globe, Layers } from 'lucide-react';
 import * as XLSX from 'xlsx';
 
 interface DashboardProps {
@@ -103,7 +103,7 @@ const Dashboard: React.FC<DashboardProps> = ({ data, onReset }) => {
                 <YAxis dataKey="name" type="category" width={100} tick={{fontSize: 12}} />
                 <Tooltip />
                 <Bar dataKey="value" fill="#3b82f6" radius={[0, 4, 4, 0]}>
-                  {stats.clusters.slice(0, 8).map((entry, index) => (
+                  {stats.clusters.slice(0, 8).map((_, index) => (
                     <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
                   ))}
                 </Bar>
@@ -130,7 +130,7 @@ const Dashboard: React.FC<DashboardProps> = ({ data, onReset }) => {
                   paddingAngle={5}
                   dataKey="value"
                 >
-                  {stats.intents.map((entry, index) => (
+                  {stats.intents.map((_, index) => (
                     <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
                   ))}
                 </Pie>

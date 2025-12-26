@@ -4,7 +4,7 @@ import { parseFile } from './utils/fileHelpers';
 import { analyzeKeywordsBatch } from './services/geminiService';
 import FileUpload from './components/FileUpload';
 import Dashboard from './components/Dashboard';
-import { BrainCircuit, Key } from 'lucide-react';
+import { BrainCircuit } from 'lucide-react';
 
 // Tăng kích thước batch để xử lý nhanh hơn (Gemini Flash có ngữ cảnh lớn)
 const BATCH_SIZE = 50;
