@@ -6,47 +6,64 @@ import FileUpload from './components/FileUpload';
 import Dashboard from './components/Dashboard';
 import { BrainCircuit, Key } from 'lucide-react';
 
-// Chunk size for Gemini Batching
-const BATCH_SIZE = 30;
-// Limit total processed for demo to prevent excessive API usage in this environment
-const MAX_KEYWORDS_LIMIT = 200; 
+// Tăng kích thước batch để xử lý nhanh hơn (Gemini Flash có ngữ cảnh lớn)
+const BATCH_SIZE = 50;
+// Tăng giới hạn tối đa lên 5000 để đọc được nhiều file hơn
+const MAX_KEYWORDS_LIMIT = 5000; 
 
 const App: React.FC = () => {
   const [status, setStatus] = useState<AppStatus>(AppStatus.IDLE);
   const [data, setData] = useState<AnalyzedKeyword[]>([]);
   const [progress, setProgress] = useState<number>(0);
+  const [processedCount, setProcessedCount] = useState<number>(0);
+  const [totalCount, setTotalCount] = useState<number>(0);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
   const processKeywords = async (keywords: string[]) => {
     setStatus(AppStatus.ANALYZING);
     setErrorMsg(null);
-    const limitedKeywords = keywords.slice(0, MAX_KEYWORDS_LIMIT);
+    
+    // Cảnh báo nếu file quá lớn
+    let processingKeywords = keywords;
+    if (keywords.length > MAX_KEYWORDS_LIMIT) {
+        alert(`File của bạn có ${keywords.length} từ khóa. Hệ thống sẽ chỉ xử lý ${MAX_KEYWORDS_LIMIT} từ đầu tiên để đảm bảo hiệu năng.`);
+        processingKeywords = keywords.slice(0, MAX_KEYWORDS_LIMIT);
+    }
+
+    setTotalCount(processingKeywords.length);
     const results: AnalyzedKeyword[] = [];
     
     // Chunking
-    const totalBatches = Math.ceil(limitedKeywords.length / BATCH_SIZE);
+    const totalBatches = Math.ceil(processingKeywords.length / BATCH_SIZE);
     
     try {
       for (let i = 0; i < totalBatches; i++) {
         const start = i * BATCH_SIZE;
         const end = start + BATCH_SIZE;
-        const batch = limitedKeywords.slice(start, end);
+        const batch = processingKeywords.slice(start, end);
         
         // Update progress UI
-        setProgress(Math.round(((i) / totalBatches) * 100));
+        const currentProgress = Math.round(((i) / totalBatches) * 100);
+        setProgress(currentProgress);
         
-        const batchResults = await analyzeKeywordsBatch(batch);
-        results.push(...batchResults);
+        try {
+            const batchResults = await analyzeKeywordsBatch(batch);
+            results.push(...batchResults);
+            setProcessedCount(results.length);
+        } catch (batchError) {
+            console.error(`Lỗi xử lý batch ${i + 1}:`, batchError);
+            // Vẫn tiếp tục chạy các batch khác, nhưng ghi nhận lỗi console
+        }
         
-        // Small delay to be gentle on rate limits (optional but good practice)
-        await new Promise(resolve => setTimeout(resolve, 500));
+        // Delay nhỏ giữa các batch để tránh spam API quá nhanh
+        await new Promise(resolve => setTimeout(resolve, 200));
       }
 
       setData(results);
       setStatus(AppStatus.COMPLETED);
     } catch (err: any) {
       console.error(err);
-      setErrorMsg(err.message || "Đã xảy ra lỗi khi phân tích dữ liệu. Vui lòng kiểm tra API Key.");
+      setErrorMsg(err.message || "Đã xảy ra lỗi nghiêm trọng khi phân tích dữ liệu.");
       setStatus(AppStatus.ERROR);
     }
   };
@@ -69,6 +86,8 @@ const App: React.FC = () => {
     setData([]);
     setStatus(AppStatus.IDLE);
     setProgress(0);
+    setProcessedCount(0);
+    setTotalCount(0);
     setErrorMsg(null);
   };
 
@@ -135,14 +154,18 @@ const App: React.FC = () => {
         ) : status === AppStatus.ANALYZING ? (
             <div className="max-w-2xl mx-auto mt-20 text-center">
                 <div className="mb-8 relative pt-4">
+                    <div className="flex justify-between text-sm text-gray-600 mb-2">
+                        <span>Tiến độ phân tích</span>
+                        <span className="font-bold">{processedCount} / {totalCount} từ khóa</span>
+                    </div>
                     <div className="w-full h-3 bg-gray-200 rounded-full overflow-hidden">
                         <div 
                             className="h-full bg-blue-600 transition-all duration-500 ease-out"
                             style={{ width: `${progress}%` }}
                         ></div>
                     </div>
-                    <div className="mt-4 text-gray-600 font-medium">Đang phân tích dữ liệu với Gemini AI... {progress}%</div>
-                    <p className="text-sm text-gray-400 mt-2">Đang xử lý ngữ nghĩa, vui lòng đợi trong giây lát.</p>
+                    <div className="mt-4 text-gray-600 font-medium">Đang xử lý dữ liệu với Gemini AI... {progress}%</div>
+                    <p className="text-sm text-gray-400 mt-2">Vui lòng không tắt trình duyệt trong quá trình xử lý.</p>
                 </div>
                 <div className="animate-pulse flex justify-center gap-2">
                     <div className="w-2 h-2 bg-blue-400 rounded-full"></div>

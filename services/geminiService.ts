@@ -9,19 +9,17 @@ Với mỗi từ khóa, bạn cần thực hiện:
 3. "isBrand": Xác định xem từ khóa này có chứa tên thương hiệu (Brand Name) cụ thể hay không (ví dụ: Nike, Samsung, Shopee).
 4. "intent": Xác định ý định tìm kiếm (Navigational, Informational, Transactional, Commercial).
 
-Trả về định dạng JSON thuần túy.
+Trả về định dạng JSON thuần túy, không dùng Markdown block.
 `;
 
-export const analyzeKeywordsBatch = async (keywords: string[]): Promise<AnalyzedKeyword[]> => {
+const wait = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
+
+export const analyzeKeywordsBatch = async (keywords: string[], retries = 3): Promise<AnalyzedKeyword[]> => {
   if (!process.env.API_KEY) {
     throw new Error("API Key is missing.");
   }
 
   const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
-
-  // Process in chunks to avoid token limits if the list is long, 
-  // but for this function we assume the caller handles chunking or the list is < 50 items.
-  
   const prompt = `Phân tích danh sách từ khóa sau đây: ${JSON.stringify(keywords)}`;
 
   try {
@@ -52,14 +50,38 @@ export const analyzeKeywordsBatch = async (keywords: string[]): Promise<Analyzed
     });
 
     if (response.text) {
-      const data = JSON.parse(response.text) as AnalyzedKeyword[];
-      return data;
+        // Clean up markdown syntax if model includes it despite instruction
+        let cleanText = response.text.trim();
+        if (cleanText.startsWith('```json')) {
+            cleanText = cleanText.replace(/^```json/, '').replace(/```$/, '');
+        } else if (cleanText.startsWith('```')) {
+            cleanText = cleanText.replace(/^```/, '').replace(/```$/, '');
+        }
+        
+        try {
+            const data = JSON.parse(cleanText) as AnalyzedKeyword[];
+            return data;
+        } catch (jsonError) {
+            console.error("Failed to parse JSON from Gemini:", cleanText);
+            // If parsing fails, we might want to return dummy data or throw
+            // For now, throw so retry might happen if it was a weird glitch, or parent catches it
+            throw new Error("Invalid JSON response from AI");
+        }
     }
     return [];
-  } catch (error) {
+
+  } catch (error: any) {
+    // Handle Rate Limiting (429)
+    if (error.status === 429 || error.message?.includes('429') || error.message?.includes('Resource has been exhausted')) {
+        if (retries > 0) {
+            console.warn(`Rate limit hit. Retrying in ${(4 - retries) * 2} seconds...`);
+            await wait((4 - retries) * 2000); // Exponential backoff: 2s, 4s, 6s
+            return analyzeKeywordsBatch(keywords, retries - 1);
+        }
+    }
+    
     console.error("Gemini Analysis Error:", error);
-    // Return empty array or throw depending on desired resilience
-    // Returning dummy objects for failed items is another strategy, but let's throw to inform UI
+    // If we ran out of retries or it's another error, throw it up
     throw error;
   }
 };
